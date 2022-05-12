@@ -9,80 +9,88 @@ import SwiftUI
 import CoreData
 
 struct ContentView: View {
-    @Environment(\.managedObjectContext) private var viewContext
-
+    @Environment(\.managedObjectContext) var moc
+    
     @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
+        sortDescriptors: [SortDescriptor(\.createdAt)],
         animation: .default)
-    private var items: FetchedResults<Item>
+    private var todos: FetchedResults<TodoItem>
 
+    @State var showSheet: Bool = false
+    @State var showAlert: Bool = false
+    @State var refreshingId: UUID = UUID()
+    
     var body: some View {
         NavigationView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-                    } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
+            ScrollView{
+                if (todos.isEmpty) {
+                    Text("No todo data")
+                } else {
+                    ForEach(todos) { todo in
+                        VStack {
+                            Text(todo.title ?? "")
+                                .font(.title2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text(todo.content ?? "")
+                                .font(.body)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Divider()
+                        }
+                        .padding(.horizontal, 16)
                     }
+                    .id(refreshingId)
+                    .padding(.top, 16)
                 }
-                .onDelete(perform: deleteItems)
             }
-            .toolbar {
+            .frame(maxWidth: .infinity)
+            .navigationTitle("Simple Todo List")
+            .toolbar{
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
+                    Button {
+                        showSheet.toggle()
+                    } label: {
+                        Image(systemName: "plus")
+                        Text("Add New")
+                    }
                 }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                ToolbarItem() {
+                    Button {
+                        showAlert.toggle()
+                    } label: {
+                        Image(systemName: "trash")
+                            .foregroundColor(.red)
+//                        Text("Delete all")
+                    }
+                    .alert("Delete All Todo Data?", isPresented: $showAlert){
+                        Button("Ok", role: .destructive) {
+                            let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: "TodoItem")
+                            
+                            let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+                            do {
+                                try moc.save()
+                                try moc.execute(deleteRequest)
+                                moc.reset()
+                                
+                                refreshingId = UUID()
+                            } catch _ as NSError {
+                                print("Deleting data failed")
+                            }
+                        }
                     }
                 }
             }
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+            .sheet(isPresented: $showSheet) {
+                
+            } content: {
+                AddTodoSheet()
             }
-        }
-    }
 
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
         }
     }
 }
 
-private let itemFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .medium
-    return formatter
-}()
-
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+        ContentView()
     }
 }
