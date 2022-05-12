@@ -25,6 +25,7 @@ struct ContentView: View {
             ScrollView{
                 if (todos.isEmpty) {
                     Text("No todo data")
+                        .padding(.top, 32)
                 } else {
                     ForEach(todos) { todo in
                         VStack {
@@ -36,10 +37,16 @@ struct ContentView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             Divider()
                         }
+                        .frame(maxWidth: .infinity)
                         .padding(.horizontal, 16)
+                        .onTapGesture {
+                            // TODO: Show sheet with this todo item data appear in the sheet
+                            print("\(todo.title ?? "") is pressed")
+                        }
                     }
                     .id(refreshingId)
                     .padding(.top, 16)
+                    .frame(maxWidth: .infinity)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -50,7 +57,7 @@ struct ContentView: View {
                         showSheet.toggle()
                     } label: {
                         Image(systemName: "plus")
-                        Text("Add New")
+//                        Text("Add New")
                     }
                 }
                 ToolbarItem() {
